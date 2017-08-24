@@ -10,6 +10,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private DrawView drawView;
     private Button clearButton;
+    private Button undoButton;
+    private Button redoButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,6 +24,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         drawView = (DrawView) findViewById(R.id.draw_view);
         clearButton = (Button) findViewById(R.id.clear_button);
         clearButton.setOnClickListener(this);
+        undoButton = (Button) findViewById(R.id.undo_button);
+        undoButton.setOnClickListener(this);
+        redoButton = (Button) findViewById(R.id.redo_button);
+        redoButton.setOnClickListener(this);
     }
 
     @Override
@@ -29,6 +35,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (v == clearButton) {
             Toast.makeText(this, "Clear", Toast.LENGTH_SHORT).show();
             drawView.clear();
+        } else if (v == undoButton) {
+            boolean successful = drawView.undo();
+            if (!successful) {
+                Toast.makeText(this, "Can't undo", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }
