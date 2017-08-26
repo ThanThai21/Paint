@@ -21,58 +21,57 @@ import java.util.Stack;
 
 public class DrawView extends View {
 
-    //drawing path
-    private Path drawPath;
-    //drawing and canvas paint
-    private Paint drawPaint, canvasPaint;
+    private Element currentElement;
+    private Paint currentPaint;
 
-    //initial color
     private int paintColor = 0xFF660000;
-    //canvas
     private Canvas drawCanvas;
-    //canvas bitmap
     private Bitmap canvasBitmap;
+    private Bitmap backgroundImage;
 
     private int brushSize = 20;
 
-    private List<Path> paths;
-    private Stack<Path> undoStack;
-    private Stack<Path> redoStack;
+    private List<Element> elements;
+    private Stack<Element> undoStack;
+    private Stack<Element> redoStack;
 
     public DrawView(Context context) {
         super(context);
-        setup();
+        init();
     }
 
     public DrawView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        setup();
+        init();
     }
 
     public DrawView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        setup();
+        init();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public DrawView(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
+        init();
+    }
+
+    private void init() {
+        elements = new ArrayList<>();
+        undoStack = new Stack<>();
+        redoStack = new Stack<>();
         setup();
     }
 
     private void setup() {
-        drawPath = new Path();
-        drawPaint = new Paint();
-        drawPaint.setColor(paintColor);
-        drawPaint.setAntiAlias(true);
-        drawPaint.setStyle(Paint.Style.STROKE);
-        drawPaint.setStrokeWidth(brushSize);
-        drawPaint.setStrokeJoin(Paint.Join.ROUND);
-        drawPaint.setStrokeCap(Paint.Cap.ROUND);
-        canvasPaint = new Paint(Paint.DITHER_FLAG);
-        paths = new ArrayList<>();
-        undoStack = new Stack<>();
-        redoStack = new Stack<>();
+        currentElement = new Element();
+        currentElement.paint.setColor(paintColor);
+        currentElement.paint.setAntiAlias(true);
+        currentElement.paint.setStyle(Paint.Style.STROKE);
+        currentElement.paint.setStrokeWidth(brushSize);
+        currentElement.paint.setStrokeJoin(Paint.Join.ROUND);
+        currentElement.paint.setStrokeCap(Paint.Cap.ROUND);
+
     }
 
     @Override
@@ -85,10 +84,13 @@ public class DrawView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        for (Path path : paths) {
-            canvas.drawPath(path, drawPaint);
+        if (backgroundImage != null) {
+            canvas.drawBitmap(backgroundImage, 0, 0, null);
         }
-        canvas.drawPath(drawPath, drawPaint);
+        for (Element element : elements) {
+            canvas.drawPath(element.path, element.paint);
+        }
+        canvas.drawPath(currentElement.path, currentElement.paint);
     }
 
     @Override
@@ -97,18 +99,17 @@ public class DrawView extends View {
         float touchY = event.getY();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                drawPath.moveTo(touchX, touchY);
+                currentElement.path.moveTo(touchX, touchY);
                 break;
             case MotionEvent.ACTION_MOVE:
-                drawPath.lineTo(touchX, touchY);
+                currentElement.path.lineTo(touchX, touchY);
                 break;
             case MotionEvent.ACTION_UP:
-                drawCanvas.drawPath(drawPath, drawPaint);
-                Path p = drawPath;
-                paths.add(p);
-                undoStack.add(p);
-                drawPath = new Path();
-
+                drawCanvas.drawPath(currentElement.path, currentElement.paint);
+                Element e = currentElement;
+                elements.add(e);
+                undoStack.add(e);
+                setup();
                 break;
             default:
                 return false;
@@ -118,26 +119,38 @@ public class DrawView extends View {
     }
 
     public void clear() {
-        paths.clear();
+        elements.clear();
         undoStack.clear();
         redoStack.clear();
-        drawPath.reset();
+        currentElement.path.reset();
         invalidate();
     }
 
     public boolean undo() {
         if (undoStack.size() >= 1) {
-            Path last = undoStack.pop();
+            Element last = undoStack.pop();
             redoStack.add(last);
         } else {
             return false;
         }
         if (undoStack.size() >= 1) {
-            drawPath = undoStack.peek();
+            currentElement = undoStack.peek();
         } else {
-            drawPath.reset();
+            currentElement.path.reset();
         }
-        paths.remove(paths.size() - 1);
+        elements.remove(elements.size() - 1);
+        invalidate();
+        return true;
+    }
+
+    public boolean redo() {
+        if (redoStack.isEmpty()) {
+            return false;
+        }
+        Element element = redoStack.pop();
+        undoStack.add(element);
+        elements.add(element);
+        currentElement = element;
         invalidate();
         return true;
     }
@@ -148,5 +161,27 @@ public class DrawView extends View {
         Bitmap bmp = Bitmap.createBitmap(this.getDrawingCache());
         this.setDrawingCacheEnabled(false);
         return bmp;
+    }
+
+    public void setImage(@Nullable Bitmap backgroundImage) {
+        if (backgroundImage != null) {
+            this.backgroundImage = Bitmap.createScaledBitmap(backgroundImage, getWidth(), getHeight(), false);
+        } else {
+            this.backgroundImage = null;
+        }
+        invalidate();
+    }
+
+    public void setColor(int color) {
+        this.paintColor = color;
+        currentElement.paint.setColor(color);
+    }
+
+    public int getColor() {
+        return this.paintColor;
+    }
+
+    public void setBrushSize(int brushSize) {
+        this.brushSize = brushSize;
     }
 }
